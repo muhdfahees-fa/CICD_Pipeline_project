@@ -15,15 +15,8 @@ spec:
         app: hello-world
     spec:
       containers:
-      - name: hello-world-container
-        image: asia-south1-docker.pkg.dev/<PROJECT_ID>/hello-world-repo/hello-world-app:1.0
+      - name: hello-world
+        image: asia-south1-docker.pkg.dev/firm-pentameter-475405-i2/hello-worldapprepo/hello_world_app:1.0
+        imagePullPolicy: Always
         ports:
-        - containerPort: 8080
-        resources:
-          limits:
-            memory: "256Mi"
-            cpu: "500m"
-          requests:
-            memory: "128Mi"
-            cpu: "250m"
-
+        - containerPort: 3000
