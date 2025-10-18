@@ -3,7 +3,7 @@ name: Deploy to GKE
 on:
   push:
     branches:
-      - main     # Trigger only when development branch is merged into main
+      - main     # Trigger only when development branch is merged into mainb
 
 env:
   PROJECT_ID: firm-pentameter-475405-i2
