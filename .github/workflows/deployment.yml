@@ -40,8 +40,8 @@ jobs:
 
       # 5️⃣ Install app dependencies (Node.js)
       - name: Install Node.js dependencies
+        working-directory: ./CICD_Pipeline_project
         run: |
-          cd CICD_Pipeline_project
           npm install
           # optional: npm run build
 
