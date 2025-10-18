@@ -48,12 +48,12 @@ jobs:
       # 6️⃣ Build Docker image
       - name: Build Docker image
         run: |
-          docker build -t ${{ env.GAR_LOCATION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/${{ env.IMAGE }}:${{ github.sha }} .
+          docker build -f ./Hello_world_app/Dockerfile -t ${{ env.GAR_LOCATION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/${{ env.IMAGE }}:${{ github.sha }} .
 
       # 7️⃣ Push image to Artifact Registry
       - name: Push Docker image to Artifact Registry
         run: |
-          docker push -f ./Hello_world_app/Dockerfile ${{ env.GAR_LOCATION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/${{ env.IMAGE }}:${{ github.sha }}
+          docker push ${{ env.GAR_LOCATION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/${{ env.IMAGE }}:${{ github.sha }}
 
       # 8️⃣ Get GKE credentials
       - name: Get GKE credentials
