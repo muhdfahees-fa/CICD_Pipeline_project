@@ -75,7 +75,8 @@ jobs:
       # 🔟 Deploy to GKE
       - name: Deploy to GKE
         run: |
-          kubectl apply -f k8s/
+          kubectl apply -f k8s/deployment.yaml
+          kubectl apply -f k8s/service.yaml
           kubectl set image deployment/hello-world-deployment \
             hello-world=${{ env.GAR_LOCATION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/${{ env.IMAGE }}:${{ github.sha }}
           kubectl rollout status deployment/hello-world-deployment
