@@ -16,7 +16,7 @@ spec:
     spec:
       containers:
       - name: hello-world
-        image: asia-south1-docker.pkg.dev/firm-pentameter-475405-i2/hello-worldapprepo/hello_world_app:1.0
+        image: asia-south1-docker.pkg.dev/firm-pentameter-475405-i2/hello-worldapprepo/hello_world_app:latest
         imagePullPolicy: Always
         ports:
         - containerPort: 3000
