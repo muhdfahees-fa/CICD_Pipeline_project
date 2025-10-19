@@ -83,7 +83,7 @@ jobs:
           # Scan image
           trivy image --format json --output $REPORT_FILE $IMAGE_NAME
 
-          # Upload report to GCS
+          # Upload report to GCS 
           gsutil cp $REPORT_FILE gs://${{ secrets.GCS_BUCKET_NAME }}/trivy-reports/$REPORT_FILE
 
           # Fail pipeline if high or critical vulnerabilities found
