@@ -3,7 +3,7 @@ name: Deploy to GKE
 on:
   push:
     branches:
-      - main     # Trigger only when development branch is merged into main
+      - main
   pull_request:
     branches:
       - main
@@ -21,6 +21,7 @@ jobs:
       GKE_CLUSTER: ${{ secrets.GKE_CLUSTER_NAME }}
       GKE_ZONE: ${{ secrets.GKE_ZONE }}
       REPOSITORY: ${{ secrets.GCP_ARTIFACT_REPO }}
+      GCS_BUCKET_NAME: ${{ secrets.GCS_BUCKET_NAME }}
 
     steps:
       # 1️⃣ Checkout code
@@ -33,7 +34,7 @@ jobs:
         with:
           credentials_json: ${{ secrets.GCP_SA_KEY }}
 
-      # 3️⃣ Set up gcloud CLI
+      # 3️⃣ Set up Cloud SDK
       - name: Set up Cloud SDK
         uses: google-github-actions/setup-gcloud@v2
         with:
@@ -62,24 +63,39 @@ jobs:
           docker build -f ./Hello_world_app/Dockerfile \
             -t ${{ env.GAR_LOCATION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/${{ secrets.GCP_ARTIFACT_REPO }}/${{ env.IMAGE }}:${{ github.sha }} .
 
-      # 8️⃣ Push Docker image to Artifact Registry
+      # 9️⃣ Trivy scan before pushing
+      - name: Scan Docker image with Trivy
+        run: |
+          IMAGE_NAME=${{ env.GAR_LOCATION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/${{ secrets.GCP_ARTIFACT_REPO }}/${{ env.IMAGE }}:${{ github.sha }}
+          REPORT_FILE=trivy-report-${GITHUB_SHA}.json
+
+          # Scan image
+          trivy image --format json --output $REPORT_FILE $IMAGE_NAME
+
+          # Upload report to GCS
+          gsutil cp $REPORT_FILE gs://${{ secrets.GCS_BUCKET_NAME }}/trivy-reports/$REPORT_FILE
+
+          # Fail pipeline if high or critical vulnerabilities found
+          trivy image --exit-code 1 --severity HIGH,CRITICAL $IMAGE_NAME || echo "High/Critical vulnerabilities detected!"
+
+      # 🔟 Push Docker image to Artifact Registry
       - name: Push Docker image to Artifact Registry
         run: |
           docker push ${{ env.GAR_LOCATION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/${{ secrets.GCP_ARTIFACT_REPO }}/${{ env.IMAGE }}:${{ github.sha }}
 
-      # 9️⃣ Get GKE credentials
+      # 1️⃣1️⃣ Get GKE credentials
       - name: Get GKE credentials
         run: |
           gcloud container clusters get-credentials ${{ secrets.GKE_CLUSTER_NAME }} \
             --region ${{ secrets.GKE_ZONE }} \
             --project ${{ secrets.GCP_PROJECT_ID }}
 
-      # 🔟 Update Kubernetes Deployment image
+      # 1️⃣2️⃣ Update Kubernetes Deployment image
       - name: Update Kubernetes Deployment image
         run: |
           sed -i "s|image:.*|image: ${{ env.GAR_LOCATION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/${{ secrets.GCP_ARTIFACT_REPO }}/${{ env.IMAGE }}:${{ github.sha }}|g" k8s/deployment.yaml
 
-      # 1️⃣1️⃣ Deploy to GKE
+      # 1️⃣3️⃣ Deploy to GKE
       - name: Deploy to GKE
         run: |
           kubectl apply -f k8s/deployment.yaml
@@ -89,3 +105,15 @@ jobs:
           kubectl rollout status deployment/hello-world-deployment
           kubectl get pods
           kubectl get svc hello-world-service
+
+      # 1️⃣4️⃣ Slack Notification
+      #- name: Slack Notification
+       # uses: slackapi/slack-github-action@v1
+        #with:
+         # payload: >
+          #  {
+           #   "text": "✅ Deployment completed for image ${{ env.IMAGE }}.\nTrivy report: gs://${{ secrets.GCS_BUCKET_NAME }}/trivy-reports/trivy-report-${GITHUB_SHA}.json",
+            #  "channel": "#devsecops"
+            #}
+        #env:
+         # SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
