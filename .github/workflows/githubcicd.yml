@@ -69,7 +69,7 @@ jobs:
          image-ref: ${{ env.GAR_LOCATION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/${{ secrets.GCP_ARTIFACT_REPO }}/${{ env.IMAGE }}:${{ github.sha }}
          format: json
          output: trivy-report-${{ github.sha }}.json
-        # exit-code: '1'  # fail on HIGH or CRITICAL vulnerabilities
+        # exit-code: '1'  ## fail on HIGH or CRITICAL vulnerabilities
          severity: HIGH,CRITICAL
          run: |
           gsutil cp trivy-report-${{ github.sha }}.json gs://${{ secrets.GCS_BUCKET_NAME }}/trivy-reports/
@@ -83,7 +83,7 @@ jobs:
           # Scan image
           trivy image --format json --output $REPORT_FILE $IMAGE_NAME
 
-          # Upload report to GCS
+          # Upload report to GCS 
           gsutil cp $REPORT_FILE gs://${{ secrets.GCS_BUCKET_NAME }}/trivy-reports/$REPORT_FILE
 
           # Fail pipeline if high or critical vulnerabilities found
