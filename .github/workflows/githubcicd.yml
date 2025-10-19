@@ -62,6 +62,10 @@ jobs:
         run: |
           docker build -f ./Hello_world_app/Dockerfile \
             -t ${{ env.GAR_LOCATION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/${{ secrets.GCP_ARTIFACT_REPO }}/${{ env.IMAGE }}:${{ github.sha }} .
+      # 8️⃣ Install Trivy
+      - name: Install Trivy
+        run: |
+          curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sudo sh
 
       # 9️⃣ Trivy scan before pushing
       - name: Scan Docker image with Trivy
