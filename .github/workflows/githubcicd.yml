@@ -21,7 +21,6 @@ jobs:
       GKE_CLUSTER: ${{ secrets.GKE_CLUSTER }}
       GKE_ZONE: ${{ secrets.GKE_ZONE }}
       REPOSITORY: ${{ secrets.GCP_ARTIFACT_REPO }}
-      IMAGE: ${{ env.IMAGE }}
 
     steps:
       # 1️⃣ Checkout code
