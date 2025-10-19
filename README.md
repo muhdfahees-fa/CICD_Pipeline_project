@@ -1,4 +1,4 @@
-CI/CD Pipeline for Hello World App (GKE + Terraform + GitHub Actions)
+**CI/CD Pipeline for Hello World App (GKE + Terraform + GitHub Actions)**
 
 This project demonstrates a fully automated CI/CD pipeline that builds, containerizes, and deploys a Node.js “Hello World” application to a Google Kubernetes Engine (GKE) cluster using Terraform, Docker, and GitHub Actions.
 
