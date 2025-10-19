@@ -9,7 +9,7 @@ on:
       - main
 
 env:
-  GAR_LOCATION: asia-south1
+  GAR_LOCATION: asia-south1 
   IMAGE: hello_world_app
 
 jobs:
