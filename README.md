@@ -106,3 +106,42 @@ Your app will be live on a public LoadBalancer IP
 Accessible via http://<external-ip>
 
 Automatically updates with every merge to main
+
+Monitoring Setup
+
+Monitoring is enabled using Prometheus and Grafana for real-time application and cluster metrics.
+
+Access Grafana
+
+Grafana is deployed in the monitoring namespace.
+
+Service type: LoadBalancer with EXTERNAL-IP. Example:
+
+http://34.14.148.186
+
+
+Login credentials:
+
+kubectl get secret -n monitoring grafana -o jsonpath="{.data.admin-password}" | base64 --decode ; echo
+Username: admin
+
+Grafana Dashboards
+
+CPU usage of Hello World pods:
+
+sum(rate(container_cpu_usage_seconds_total{namespace="default", pod=~"hello-world-deployment.*"}[1m])) by (pod)
+
+
+Memory usage:
+
+sum(container_memory_usage_bytes{namespace="default", pod=~"hello-world-deployment.*"}) by (pod)
+
+
+Pod restarts:
+
+kube_pod_container_status_restarts_total{namespace="default", pod=~"hello-world-deployment.*"}
+
+
+Pod status:
+
+kube_pod_status_phase{namespace="default", pod=~"hello-world-deployment.*"}
