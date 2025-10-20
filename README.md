@@ -1,147 +1,202 @@
-**CI/CD Pipeline for Hello World App (GKE + Terraform + GitHub Actions)**
 
-This project demonstrates a fully automated CI/CD pipeline that builds, containerizes, and deploys a Node.js “Hello World” application to a Google Kubernetes Engine (GKE) cluster using Terraform, Docker, and GitHub Actions.
+# CI/CD Pipeline for Hello World App (GKE + Terraform + GitHub Actions)
 
-📘 Overview
+This project implements a fully automated CI/CD pipeline that builds, containerizes, scans, and deploys a Node.js **Hello World** application to a **Google Kubernetes Engine (GKE)** cluster using **Terraform, Docker, and GitHub Actions**.
 
-The workflow automates the complete deployment lifecycle:
+---
 
-Code pushed to the development branch
+## Workflow
 
-When merged into main, the GitHub Actions pipeline is triggered
+- Code pushed to `development` branch.
+- Merge to `main` triggers GitHub Actions pipeline.
+- Pipeline steps:
+  1. Checkout repository
+  2. Authenticate with GCP using Service Account
+  3. Build Docker image with **versioning** (GitHub run number, commit SHA, `latest`)
+  4. Scan Docker image using **Trivy** (HIGH & CRITICAL vulnerabilities)
+  5. Upload Trivy report to GCS and clean old reports
+  6. Push Docker image to **Google Artifact Registry**
+  7. Cleanup old Docker images (keeping latest 4)
+  8. Get GKE credentials
+  9. Update Kubernetes deployment image
+  10. Apply Kubernetes manifests (`deployment.yaml`, `service.yaml`, `ingress.yaml`)
+  11. Verify rollout and pod status
+  12. Optional Slack notification
 
-The pipeline:
+---
 
-Builds the application using npm
+## GitHub Secrets
 
-Containerizes it using Docker
+| Secret               | Description |
+|----------------------|-------------|
+| `GCP_SA_KEY`         | Service Account JSON key |
+| `GCP_PROJECT_ID`     | Google Cloud Project ID |
+| `GKE_CLUSTER_NAME`   | GKE Cluster name |
+| `GKE_ZONE`           | GKE region/zone |
+| `GCP_ARTIFACT_REPO`  | Artifact Registry repository |
+| `GCS_BUCKET_NAME`    | GCS bucket for Trivy reports |
+| `SLACK_BOT_TOKEN`    | Optional Slack bot token for notifications |
 
-Pushes the image to Google Artifact Registry (GAR)
+---
 
-Deploys the latest image automatically to the GKE cluster
+## Docker Setup and Usage
 
-All secrets and credentials are securely stored in GitHub Secrets.
+1. **Build Docker Image** (locally or in pipeline):
 
-🧠 Key Components
-Component	Purpose
-GitHub Actions	Automates build, push, and deploy stages
-Docker	Containerizes the Node.js application
-Google Artifact Registry	Stores the built Docker images
-Google Kubernetes Engine (GKE)	Hosts and manages the containerized app
-Terraform	Provisions and manages GCP resources (Cluster, APIs, etc.)
-⚙️ Workflow Summary
+```bash
+docker build -t hello_world_app:latest ./Hello_world_app
+````
 
-Trigger: When the development branch is merged into main
+2. **Tag for Google Artifact Registry**:
 
-Stages:
+```bash
+docker tag hello_world_app:latest asia-south1-docker.pkg.dev/<PROJECT_ID>/<REPO>/hello_world_app:latest
+```
 
-Checkout source code
+3. **Push to Artifact Registry**:
 
-Authenticate with GCP using Service Account
+```bash
+docker push asia-south1-docker.pkg.dev/<PROJECT_ID>/<REPO>/hello_world_app:latest
+```
 
-Build Docker image and push to Artifact Registry
+4. **Run locally (optional)**:
 
-Update Kubernetes deployment with new image
+```bash
+docker run -p 3000:3000 hello_world_app:latest
+```
 
-Apply Kubernetes manifests (deployment.yaml and service.yaml)
+---
 
-Verify rollout and pod status
+## Kubernetes Deployment
 
-🔑 Prerequisites
+1. **Get GKE credentials**:
 
-Before setting up this project, ensure you have:
+```bash
+gcloud container clusters get-credentials <GKE_CLUSTER_NAME> --region <REGION> --project <PROJECT_ID>
+```
 
-A Google Cloud Project (with billing enabled)
+2. **Apply Kubernetes manifests**:
 
-Artifact Registry and Kubernetes Engine APIs enabled
+```bash
+kubectl apply -f k8s/deployment.yaml
+kubectl apply -f k8s/service.yaml
+kubectl apply -f k8s/ingress.yaml
+```
 
-A Service Account JSON key with proper IAM permissions
+3. **Update Deployment Image**:
 
-Terraform installed for provisioning GKE resources
+```bash
+kubectl set image deployment/hello-world-deployment \
+  hello-world=asia-south1-docker.pkg.dev/<PROJECT_ID>/<REPO>/hello_world_app:<VERSION>
+```
 
-GitHub Secrets configured:
+4. **Verify rollout**:
 
-GCP_SA_KEY → contents of your service account key JSON
+```bash
+kubectl rollout status deployment/hello-world-deployment
+kubectl get pods
+kubectl get svc hello-world-service
+kubectl get ingress
+```
 
-PROJECT_ID, GAR_LOCATION, GKE_CLUSTER, etc.
+---
 
-🌐 Deployment Architecture
-GitHub Repo (development → main)
-        │
-        ▼
- GitHub Actions Workflow
-        │
-        ▼
-   Docker Build → Push to GAR
-        │
-        ▼
-     Deploy to GKE
-        │
-        ▼
-   Service (LoadBalancer)
-        │
-        ▼
-   Public URL (HTTP access)
+## Terraform Setup and Usage
 
-🧩 Tech Stack
+1. **Initialize Terraform**:
 
-Node.js (Express.js)
+```bash
+terraform init
+```
 
-Docker
+2. **Plan Infrastructure**:
 
-Terraform
+```bash
+terraform plan
+```
 
-Google Artifact Registry
+3. **Apply Terraform (create GKE cluster, enable APIs, create Artifact Registry)**:
 
-Google Kubernetes Engine (GKE)
+```bash
+terraform apply -auto-approve
+```
 
-GitHub Actions
+4. **Destroy infrastructure (optional)**:
 
-✅ Outcome
+```bash
+terraform destroy -auto-approve
+```
 
-Once the workflow runs successfully:
+> Terraform provisions the GKE cluster, configures required APIs, and creates Artifact Registry and storage buckets for CI/CD.
 
-Your app will be live on a public LoadBalancer IP
+---
 
-Accessible via http://<external-ip>
+## Docker Versioning
 
-Automatically updates with every merge to main
+* Images are tagged as:
 
-Monitoring Setup
+  * GitHub run number
+  * `latest`
+  * Commit SHA
+* Old images are automatically cleaned (keeping latest 4 versions).
 
-Monitoring is enabled using Prometheus and Grafana for real-time application and cluster metrics.
+---
 
-Access Grafana
+## Security Scanning with Trivy
 
-Grafana is deployed in the monitoring namespace.
+* Scans Docker images for **HIGH** and **CRITICAL** vulnerabilities.
+* Reports uploaded to GCS bucket.
+* Old reports automatically cleaned (keeping latest 3).
 
-Service type: LoadBalancer with EXTERNAL-IP. Example:
+---
 
-http://34.14.148.186
+## Monitoring with Prometheus & Grafana
 
+* Prometheus monitors application and cluster metrics.
+* Grafana provides dashboards.
+* Grafana Service type: **LoadBalancer**
+* Example access: `http://34.14.148.186`
 
-Login credentials:
+### Grafana Credentials
 
+```bash
 kubectl get secret -n monitoring grafana -o jsonpath="{.data.admin-password}" | base64 --decode ; echo
 Username: admin
+```
 
-Grafana Dashboards
+### Grafana Dashboards
 
-CPU usage of Hello World pods:
+* **CPU usage:**
 
+```promql
 sum(rate(container_cpu_usage_seconds_total{namespace="default", pod=~"hello-world-deployment.*"}[1m])) by (pod)
+```
 
+* **Memory usage:**
 
-Memory usage:
-
+```promql
 sum(container_memory_usage_bytes{namespace="default", pod=~"hello-world-deployment.*"}) by (pod)
+```
 
+* **Pod restarts:**
 
-Pod restarts:
-
+```promql
 kube_pod_container_status_restarts_total{namespace="default", pod=~"hello-world-deployment.*"}
+```
 
+* **Pod status:**
 
-Pod status:
-
+```promql
 kube_pod_status_phase{namespace="default", pod=~"hello-world-deployment.*"}
+```
+
+---
+
+## Outcome
+
+* App is live on a public LoadBalancer IP.
+* Automatic updates occur with every merge to `main`.
+* Continuous security scanning and monitoring are integrated.
+* Old Docker images and Trivy reports are automatically cleaned.
+* Full CI/CD pipeline works end-to-end with Terraform, Docker, Kubernetes, and GitHub Actions.
+
