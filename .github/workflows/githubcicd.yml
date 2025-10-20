@@ -116,12 +116,12 @@ jobs:
 
           echo "All tags:"
           IMAGES_TO_DELETE=$(gcloud artifacts docker images list $LOCATION-docker.pkg.dev/$PROJECT/$REPO/$IMAGE \
-           --include-tags \
-           --sort-by=~updateTime \
-           --format="get(tags)" \
-           | tr ',' '\n' \
-           | sed '/^$/d' \
-           | tail -n +5)   # keep latest 4
+          --include-tags \
+          --sort-by=~updateTime \
+          --format="get(tags)" \
+          | tr ',;' '\n' \          # ✅ split both commas and semicolons
+          | sed '/^$/d' \           # remove empty lines
+          | tail -n +5)             # keep latest 4
 
 
           echo "Tags selected for deletion:"
