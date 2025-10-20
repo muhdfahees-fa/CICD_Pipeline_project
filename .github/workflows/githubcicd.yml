@@ -55,58 +55,80 @@ jobs:
         working-directory: ./Hello_world_app
         run: |
           npm install
-          # optional: npm run build
 
-      # 7️⃣ Build Docker image
-      - name: Build Docker image
+      # 7️⃣ Build Docker Image (with version tag)
+      - name: Build Docker Image
         run: |
+          VERSION=${{ github.run_number }}
+          IMAGE_URI=${{ env.GAR_LOCATION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/${{ secrets.GCP_ARTIFACT_REPO }}/${{ env.IMAGE }}
           docker build -f ./Hello_world_app/Dockerfile \
-            -t ${{ env.GAR_LOCATION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/${{ secrets.GCP_ARTIFACT_REPO }}/${{ env.IMAGE }}:${{ github.sha }} .
-      # 9️⃣ Scan Docker image with Trivy and upload report to GCS
+            -t $IMAGE_URI:$VERSION \
+            -t $IMAGE_URI:latest \
+            -t $IMAGE_URI:${{ github.sha }} .
+
+      # 8️⃣ Scan Docker image with Trivy, upload report to GCS
       - name: Scan Docker image with Trivy and upload report
-        uses: aquasecurity/trivy-action@master
-        with:
-         image-ref: ${{ env.GAR_LOCATION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/${{ secrets.GCP_ARTIFACT_REPO }}/${{ env.IMAGE }}:${{ github.sha }}
-         format: json
-         output: trivy-report-${{ github.sha }}.json
-        # exit-code: '1'  ## fail on HIGH or CRITICAL vulnerabilities
-         severity: HIGH,CRITICAL
-         run: |
-          gsutil cp trivy-report-${{ github.sha }}.json gs://${{ secrets.GCS_BUCKET_NAME }}/trivy-reports/
-
-      # 9️⃣ Trivy scan before pushing
-      - name: Scan Docker image with Trivy
         run: |
-          IMAGE_NAME=${{ env.GAR_LOCATION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/${{ secrets.GCP_ARTIFACT_REPO }}/${{ env.IMAGE }}:${{ github.sha }}
-          REPORT_FILE=trivy-report-${GITHUB_SHA}.json
+          VERSION=${{ github.run_number }}
+          IMAGE_NAME=${{ env.GAR_LOCATION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/${{ secrets.GCP_ARTIFACT_REPO }}/${{ env.IMAGE }}:$VERSION
+          REPORT_FILE=trivy-report-${VERSION}-${GITHUB_SHA}.json
 
-          # Scan image
-          trivy image --format json --output $REPORT_FILE $IMAGE_NAME
+          # Scan Docker image
+          trivy image --format json --output $REPORT_FILE $IMAGE_NAME --severity HIGH,CRITICAL
 
-          # Upload report to GCS 
+          # Show vulnerabilities in console
+          trivy image --severity HIGH,CRITICAL $IMAGE_NAME || echo "High/Critical vulnerabilities detected!"
+                   #exitcode 1
+
+          # Upload report to GCS with versioned filename
           gsutil cp $REPORT_FILE gs://${{ secrets.GCS_BUCKET_NAME }}/trivy-reports/$REPORT_FILE
 
-          # Fail pipeline if high or critical vulnerabilities found
-          trivy image --exit-code 1 --severity HIGH,CRITICAL $IMAGE_NAME || echo "High/Critical vulnerabilities detected!"
+      # 9️⃣ Cleanup old Trivy reports in GCS (keep latest 3)
+      - name: Cleanup old Trivy reports in GCS (keep latest 3)
+        run: |
+          gsutil ls gs://${{ secrets.GCS_BUCKET_NAME }}/trivy-reports/ \
+            | sort -r \
+            | tail -n +4 \
+            | xargs -n 1 gsutil rm || echo "No old reports to delete"
 
       # 🔟 Push Docker image to Artifact Registry
-      - name: Push Docker image to Artifact Registry
+      - name: Push Docker image
         run: |
-          docker push ${{ env.GAR_LOCATION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/${{ secrets.GCP_ARTIFACT_REPO }}/${{ env.IMAGE }}:${{ github.sha }}
+          VERSION=${{ github.run_number }}
+          IMAGE_URI=${{ env.GAR_LOCATION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/${{ secrets.GCP_ARTIFACT_REPO }}/${{ env.IMAGE }}
 
-      # 1️⃣1️⃣ Get GKE credentials
+          docker push $IMAGE_URI:$VERSION
+          docker push $IMAGE_URI:latest
+          docker push $IMAGE_URI:${{ github.sha }}
+
+      # 1️⃣1️⃣ Cleanup old Docker image versions (keep latest 4)
+      - name: Cleanup old Docker image versions in Artifact Registry
+        run: |
+          IMAGES_TO_DELETE=$(gcloud artifacts docker images list ${{ env.GAR_LOCATION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/${{ secrets.GCP_ARTIFACT_REPO }}/${{ env.IMAGE }} \
+            --include-tags \
+            --format="get(tags)" \
+            --sort-by=~updateTime \
+            | tr ',' '\n' \
+            | tail -n +5)
+
+          for tag in $IMAGES_TO_DELETE; do
+            echo "Deleting $IMAGE:$tag"
+            gcloud artifacts docker images delete $LOCATION-docker.pkg.dev/$PROJECT/$REPO/$IMAGE:$tag --quiet
+          done
+
+      # 1️⃣2️⃣ Get GKE credentials
       - name: Get GKE credentials
         run: |
           gcloud container clusters get-credentials ${{ secrets.GKE_CLUSTER_NAME }} \
             --region ${{ env.GAR_LOCATION }} \
             --project ${{ secrets.GCP_PROJECT_ID }}
 
-      # 1️⃣2️⃣ Update Kubernetes Deployment image
+      # 1️⃣3️⃣ Update Kubernetes Deployment image
       - name: Update Kubernetes Deployment image
         run: |
           sed -i "s|image:.*|image: ${{ env.GAR_LOCATION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/${{ secrets.GCP_ARTIFACT_REPO }}/${{ env.IMAGE }}:${{ github.sha }}|g" k8s/deployment.yaml
 
-      # 1️⃣3️⃣ Deploy to GKE
+      # 1️⃣4️⃣ Deploy to GKE
       - name: Deploy to GKE
         run: |
           kubectl apply -f k8s/deployment.yaml
@@ -117,14 +139,14 @@ jobs:
           kubectl get pods
           kubectl get svc hello-world-service
 
-      # 1️⃣4️⃣ Slack Notification
+      # 1️⃣5️⃣ Slack Notification (optional)
       #- name: Slack Notification
-       # uses: slackapi/slack-github-action@v1
-        #with:
-         # payload: >
-          #  {
-           #   "text": "✅ Deployment completed for image ${{ env.IMAGE }}.\nTrivy report: gs://${{ secrets.GCS_BUCKET_NAME }}/trivy-reports/trivy-report-${GITHUB_SHA}.json",
-            #  "channel": "#devsecops"
-            #}
-        #env:
-         # SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+      #  uses: slackapi/slack-github-action@v1
+      #  with:
+      #    payload: >
+      #      {
+      #        "text": "✅ Deployment completed for image ${{ env.IMAGE }}.\nTrivy report: gs://${{ secrets.GCS_BUCKET_NAME }}/trivy-reports/trivy-report-${{ github.run_number }}-${GITHUB_SHA}.json",
+      #        "channel": "#devsecops"
+      #      }
+      #  env:
+      #    SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
