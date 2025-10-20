@@ -108,16 +108,23 @@ jobs:
       # 1️⃣1️⃣ Cleanup old Docker image versions (keep latest 4)
       - name: Cleanup old Docker image versions in Artifact Registry
         run: |
-          IMAGES_TO_DELETE=$(gcloud artifacts docker images list ${{ env.GAR_LOCATION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/${{ secrets.GCP_ARTIFACT_REPO }}/${{ env.IMAGE }} \
-            --include-tags \
-            --format="get(tags)" \
-            --sort-by=~updateTime \
-            | tr ',' '\n' \
-            | tail -n +5)
-
+          # Define variables
+          LOCATION=${{ env.GAR_LOCATION }}
+          PROJECT=${{ secrets.GCP_PROJECT_ID }}
+          REPO=${{ secrets.GCP_ARTIFACT_REPO }}
+          IMAGE=${{ env.IMAGE }}
+          
+          IMAGES_TO_DELETE=$(gcloud artifacts docker images list $LOCATION-docker.pkg.dev/$PROJECT/$REPO/$IMAGE \
+          --include-tags \
+          --format="get(tags)" \
+          --sort-by=~updateTime \
+          | tr ',' '\n' \
+          | tail -n +5)
+          
+          # Delete each old tag   
           for tag in $IMAGES_TO_DELETE; do
-            echo "Deleting $IMAGE:$tag"
-            gcloud artifacts docker images delete $LOCATION-docker.pkg.dev/$PROJECT/$REPO/$IMAGE:$tag --quiet
+           echo "Deleting $IMAGE:$tag"
+           gcloud artifacts docker images delete "$LOCATION-docker.pkg.dev/$PROJECT/$REPO/$IMAGE:$tag" --quiet
           done
 
       # 1️⃣2️⃣ Get GKE credentials
