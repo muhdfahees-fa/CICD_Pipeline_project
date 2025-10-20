@@ -113,13 +113,17 @@ jobs:
           PROJECT=${{ secrets.GCP_PROJECT_ID }}
           REPO=${{ secrets.GCP_ARTIFACT_REPO }}
           IMAGE=${{ env.IMAGE }}
-          
+
+          echo "All tags:"
           IMAGES_TO_DELETE=$(gcloud artifacts docker images list $LOCATION-docker.pkg.dev/$PROJECT/$REPO/$IMAGE \
           --include-tags \
           --format="get(tags)" \
           --sort-by=~updateTime \
           | tr ',' '\n' \
           | tail -n +5)
+
+          echo "Tags selected for deletion:"
+          echo "$IMAGES_TO_DELETE"
           
           # Delete each old tag   
           for tag in $IMAGES_TO_DELETE; do
