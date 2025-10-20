@@ -130,7 +130,7 @@ jobs:
           # Delete each old tag   
           for tag in $IMAGES_TO_DELETE; do
            echo "Deleting $IMAGE:$tag"
-           gcloud artifacts docker images delete "$LOCATION-docker.pkg.dev/$PROJECT/$REPO/$IMAGE:$tag" --quiet
+           gcloud artifacts docker images delete "$LOCATION-docker.pkg.dev/$PROJECT/$REPO/$IMAGE:$tag" --quiet --delete-tags
           done
 
       # 1️⃣2️⃣ Get GKE credentials
