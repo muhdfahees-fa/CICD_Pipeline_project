@@ -149,8 +149,15 @@ jobs:
           kubectl rollout status deployment/hello-world-deployment
           kubectl get pods
           kubectl get svc hello-world-service
+    
+    # 1️⃣5️⃣ Deploy Ingress
+      - name: Deploy Ingress
+        run: |
+         kubectl apply -f k8s/ingress.yaml
+         kubectl get ingress
+ 
 
-      # 1️⃣5️⃣ Slack Notification (optional)
+      # 1️⃣6️⃣ Slack Notification (optional)
       #- name: Slack Notification
       #  uses: slackapi/slack-github-action@v1
       #  with:
