@@ -119,9 +119,9 @@ jobs:
           --include-tags \
           --sort-by=~updateTime \
           --format="get(tags)" \
-          | tr ',;' '\n' \          
-          | sed '/^$/d' \           
-          | tail -n +5)            
+          | tr ',;' '\n' \
+          | sed '/^$/d' \
+          | tail -n +5)          
 
 
           echo "Tags selected for deletion:"
