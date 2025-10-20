@@ -65,6 +65,10 @@ jobs:
             -t $IMAGE_URI:$VERSION \
             -t $IMAGE_URI:latest \
             -t $IMAGE_URI:${{ github.sha }} .
+      
+      - name: Install Trivy
+        run: |
+         curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sudo sh -s -- -b /usr/local/bin
 
       # 8️⃣ Scan Docker image with Trivy, upload report to GCS
       - name: Scan Docker image with Trivy and upload report
