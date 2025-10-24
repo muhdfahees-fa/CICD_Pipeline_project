@@ -37,6 +37,27 @@ This project implements a fully automated CI/CD pipeline that builds, containeri
 | `GCS_BUCKET_NAME`    | GCS bucket for Trivy reports |
 | `SLACK_BOT_TOKEN`    | Optional Slack bot token for notifications |
 
+
+Put service account JSON in the same folder as terraform-key.json. That service account must have enough rights to:
+enable APIs (roles/serviceusage.serviceUsageAdmin or project owner)
+
+create networks, subnets, GKE clusters, node pools and IAM (compute & container admin, network admin). For production, follow least privilege patterns.
+
+Initialize and apply:
+
+terraform init
+terraform apply
+
+
+After apply completes, run the kubeconfig command printed by the kubeconfig_command output or:
+
+gcloud container clusters get-credentials terraform-gke-cluster --region asia-south1 --project firm-pentameter-475405-i2
+kubectl get nodes
+kubectl get svc -n ingress-nginx
+
+
+Wait a minute or two for the LoadBalancer IP to appear. You can check the output ingress_service_external_ips or kubectl get svc -n ingress-nginx until the EXTERNAL-IP is assigned.
+
 ---
 
 ## Docker Setup and Usage
