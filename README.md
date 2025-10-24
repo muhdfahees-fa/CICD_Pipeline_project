@@ -37,7 +37,6 @@ This project implements a fully automated CI/CD pipeline that builds, containeri
 | `GCS_BUCKET_NAME`    | GCS bucket for Trivy reports |
 | `SLACK_BOT_TOKEN`    | Optional Slack bot token for notifications |
 
-
 Put service account JSON in the same folder as terraform-key.json. That service account must have enough rights to:
 enable APIs (roles/serviceusage.serviceUsageAdmin or project owner)
 
@@ -180,6 +179,128 @@ terraform destroy -auto-approve
 
 ### Grafana Credentials
 
+=======
+---
+
+## Docker Setup and Usage
+
+1. **Build Docker Image** (locally or in pipeline):
+
+```bash
+docker build -t hello_world_app:latest ./Hello_world_app
+````
+
+2. **Tag for Google Artifact Registry**:
+
+```bash
+docker tag hello_world_app:latest asia-south1-docker.pkg.dev/<PROJECT_ID>/<REPO>/hello_world_app:latest
+```
+
+3. **Push to Artifact Registry**:
+
+```bash
+docker push asia-south1-docker.pkg.dev/<PROJECT_ID>/<REPO>/hello_world_app:latest
+```
+
+4. **Run locally (optional)**:
+
+```bash
+docker run -p 3000:3000 hello_world_app:latest
+```
+
+---
+
+## Kubernetes Deployment
+
+1. **Get GKE credentials**:
+
+```bash
+gcloud container clusters get-credentials <GKE_CLUSTER_NAME> --region <REGION> --project <PROJECT_ID>
+```
+
+2. **Apply Kubernetes manifests**:
+
+```bash
+kubectl apply -f k8s/deployment.yaml
+kubectl apply -f k8s/service.yaml
+kubectl apply -f k8s/ingress.yaml
+```
+
+3. **Update Deployment Image**:
+
+```bash
+kubectl set image deployment/hello-world-deployment \
+  hello-world=asia-south1-docker.pkg.dev/<PROJECT_ID>/<REPO>/hello_world_app:<VERSION>
+```
+
+4. **Verify rollout**:
+
+```bash
+kubectl rollout status deployment/hello-world-deployment
+kubectl get pods
+kubectl get svc hello-world-service
+kubectl get ingress
+```
+
+---
+
+## Terraform Setup and Usage
+
+1. **Initialize Terraform**:
+
+```bash
+terraform init
+```
+
+2. **Plan Infrastructure**:
+
+```bash
+terraform plan
+```
+
+3. **Apply Terraform (create GKE cluster, enable APIs, create Artifact Registry)**:
+
+```bash
+terraform apply -auto-approve
+```
+
+4. **Destroy infrastructure (optional)**:
+
+```bash
+terraform destroy -auto-approve
+```
+
+> Terraform provisions the GKE cluster, configures required APIs, and creates Artifact Registry and storage buckets for CI/CD.
+
+---
+
+## Docker Versioning
+
+* Images are tagged as:
+
+  * GitHub run number
+  * `latest`
+  * Commit SHA
+* Old images are automatically cleaned (keeping latest 4 versions).
+
+---
+
+## Security Scanning with Trivy
+
+* Scans Docker images for **HIGH** and **CRITICAL** vulnerabilities.
+* Reports uploaded to GCS bucket.
+* Old reports automatically cleaned (keeping latest 3).
+
+---
+
+## Monitoring with Prometheus & Grafana
+
+* Prometheus monitors application and cluster metrics.
+* Grafana provides dashboards.
+* Grafana Service type: **LoadBalancer**
+* Example access: `http://34.14.148.186`
+
+### Grafana Credentials
 ```bash
 kubectl get secret -n monitoring grafana -o jsonpath="{.data.admin-password}" | base64 --decode ; echo
 Username: admin
